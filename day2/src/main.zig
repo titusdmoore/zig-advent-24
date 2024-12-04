@@ -34,15 +34,42 @@ pub fn validateList(list: *std.ArrayList(u32), entryType: EntryType) bool {
     return out;
 }
 
-pub fn bruteResolve(inputList: *std.ArrayList(u32), entryType: EntryType) bool {
+pub fn validateSlice(list: []u32, entryType: EntryType, len: usize) bool {
+    var out = true;
+    for (1..len) |ptr| {
+        out = out and validDelta(list[ptr - 1], list[ptr], entryType);
+    }
+
+    return out;
+}
+
+pub fn bruteResolve(inputList: *std.ArrayList(u32), allocator: std.mem.Allocator) !bool {
+    var testList: []u32 = try allocator.alloc(u32, inputList.items.len - 1);
+    defer allocator.free(testList);
+
+    var determine: i64 = 0;
+    for (1..inputList.items.len) |i| {
+        determine += if (inputList.items[i - 1] < inputList.items[i]) 1 else if (inputList.items[i - 1] == inputList.items[i]) 0 else -1;
+    }
+    const entryType: EntryType = if (determine > 0) EntryType.increasing else EntryType.decreasing;
+
+    if (entryType == EntryType.unknown) return false;
+
     for (0..inputList.items.len) |skip| {
-        var out: bool = true;
-        for (1..inputList.items.len) |ptr| {
+        // var out: bool = true;
+        var idx: usize = 0;
+        for (0..inputList.items.len) |ptr| {
             if (ptr == skip) continue;
-            out = out and validDelta(inputList.items[ptr - 1], inputList.items[ptr], entryType);
+
+            testList[idx] = inputList.items[ptr];
+            idx += 1;
+
+            if (entryType == EntryType.unknown) unreachable;
         }
 
-        if (out) return true;
+        if (validateSlice(testList, entryType, inputList.items.len - 1)) {
+            return true;
+        }
     }
 
     return false;
@@ -161,7 +188,7 @@ pub fn main() !void {
 
         // if (valid or attemptResolution(&entryList)) {
         // if (valid or attemptResolution(&entryList)) {
-        if (valid or bruteResolve(&entryList, entryType)) {
+        if (valid or try bruteResolve(&entryList, allocator)) {
             validCount += 1;
             continue;
         }

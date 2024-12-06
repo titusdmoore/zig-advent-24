@@ -1,37 +1,77 @@
-//! By convention, main.zig is where your main function lives in the case that
-//! you are building an executable. If you are making a library, the convention
-//! is to delete this file and start with root.zig instead.
 const std = @import("std");
 
-pub fn main() !void {
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+const stdout_file = std.io.getStdOut().writer();
+var bw = std.io.bufferedWriter(stdout_file);
+const stdout = bw.writer();
 
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
+const ReadEnum = enum {
+    None,
+    X,
+    M,
+    A,
+    S,
+};
 
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
+const StateRead = struct {
+    state: ReadEnum,
 
-    try bw.flush(); // Don't forget to flush!
-}
-
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // Try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
-}
-
-test "fuzz example" {
-    const global = struct {
-        fn testOne(input: []const u8) anyerror!void {
-            // Try passing `--fuzz` to `zig build test` and see if it manages to fail this test case!
-            try std.testing.expect(!std.mem.eql(u8, "canyoufindme", input));
+    pub fn readChar(self: *StateRead, char: u8) bool {
+        switch (self.state) {
+            ReadEnum.None => if (char == 'X') self.state == ReadEnum.X,
+            ReadEnum.X => if (char == 'M') self.state == ReadEnum.M,
+            ReadEnum.M => if (char == 'A') self.state == ReadEnum.A,
+            ReadEnum.A => if (char == 'S') self.state == ReadEnum.S,
+            ReadEnum.S => {
+                return true;
+            },
         }
-    };
-    try std.testing.fuzz(global.testOne, .{});
+
+        return false;
+    }
+};
+
+pub fn tryReadWord(level: usize) bool {
+    if (level > 3) return false;
+
+    _ = tryReadWord(level + 1);
+    std.debug.print("{d}\n", .{level});
+    // Up Left
+    // Up Middle
+    // Up Right
+    // Right
+    // Left
+    // Bottom Left
+    // Bottom Middle
+    // Bottom Right
+
+    return false;
+}
+
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    const file = try std.fs.cwd().openFile("test.txt", .{});
+    // const file = std.fs.cwd().openFile("input.txt", .{});
+    defer file.close();
+
+    var bufReader = std.io.bufferedReader(file.reader());
+    var readerStream = bufReader.reader();
+
+    var list = std.ArrayList(u8).init(allocator);
+    defer list.deinit();
+
+    var lineLen: usize = undefined;
+
+    var buf: [1024]u8 = undefined;
+    while (try readerStream.readUntilDelimiterOrEof(&buf, '\n')) |line| {
+        lineLen = line.len;
+        try list.appendSlice(line);
+    }
+
+    std.debug.print("{d}\n", .{list.items.len});
+    _ = tryReadWord(0);
+
+    try bw.flush();
 }

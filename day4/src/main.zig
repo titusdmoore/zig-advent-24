@@ -76,42 +76,43 @@ pub fn readText(text: std.ArrayList([]u8)) u32 {
 
     for (0..text.items.len) |line| {
         for (0..text.items[line].len) |char| {
-            if (readTextHelper(ReadEnum.None, char, line, text)) {
-                count += 1;
-            }
+            count += readTextHelper(ReadEnum.None, char, line, text);
         }
     }
 
     return count;
 }
 
-pub fn readTextHelper(readState: ReadEnum, ptr: usize, rowNum: usize, text: std.ArrayList([]u8)) bool {
-    if (readState.validForNextEnum(text.items[rowNum][ptr]) == 0 or (ptr < 0 or rowNum < 0) or (ptr >= text.items[0].len or rowNum >= text.items.len)) return false;
+pub fn readTextHelper(readState: ReadEnum, ptr: usize, rowNum: usize, text: std.ArrayList([]u8)) u32 {
+    if (readState.validForNextEnum(text.items[rowNum][ptr]) == 0 or (ptr == 0 or rowNum == 0) or (ptr + 1 >= text.items[0].len or rowNum + 1 >= text.items.len)) return 0;
 
-    var out: bool = false;
-
-    out = true;
+    var out: u32 = 0;
 
     // Up Left
-    out = out or readTextHelper(readState.getNext(), ptr - 1, rowNum - 1, text);
+    out += readTextHelper(readState.getNext(), ptr - 1, rowNum - 1, text);
     // Up Middle
-    out = out or readTextHelper(readState.getNext(), ptr, rowNum - 1, text);
+    out += readTextHelper(readState.getNext(), ptr, rowNum - 1, text);
     // Up Right
-    out = out or readTextHelper(readState.getNext(), ptr + 1, rowNum - 1, text);
+    out += readTextHelper(readState.getNext(), ptr + 1, rowNum - 1, text);
 
     // Left
-    out = out or readTextHelper(readState.getNext(), ptr - 1, rowNum, text);
+    out += readTextHelper(readState.getNext(), ptr - 1, rowNum, text);
     // Right
-    out = out or readTextHelper(readState.getNext(), ptr + 1, rowNum, text);
+    out += readTextHelper(readState.getNext(), ptr + 1, rowNum, text);
 
     // Down Left
-    out = out or readTextHelper(readState.getNext(), ptr - 1, rowNum + 1, text);
+    out += readTextHelper(readState.getNext(), ptr - 1, rowNum + 1, text);
     // Down Middle
-    out = out or readTextHelper(readState.getNext(), ptr, rowNum + 1, text);
+    out += readTextHelper(readState.getNext(), ptr, rowNum + 1, text);
     // Down Right
-    out = out or readTextHelper(readState.getNext(), ptr + 1, rowNum + 1, text);
+    out += readTextHelper(readState.getNext(), ptr + 1, rowNum + 1, text);
 
-    return out or readState.validForNextEnum(text.items[rowNum][ptr]) == 7;
+    std.debug.print("Read for: {c}; At: {any}; Value: {d}, At: {d}, {d}\n", .{ text.items[rowNum][ptr], readState, readState.validForNextEnum(text.items[rowNum][ptr]), ptr, rowNum });
+    const runTimeValue: u32 = if (readState.validForNextEnum(text.items[rowNum][ptr]) == 3) 1 else 0;
+    if (runTimeValue == 1) {
+        std.debug.print("Found match\n", .{});
+    }
+    return out + runTimeValue;
 }
 
 // pub fn tryReadWord(readState: *StateRead) bool {
